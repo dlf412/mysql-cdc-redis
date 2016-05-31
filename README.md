@@ -13,6 +13,7 @@ capture changed data from mysql using binlog
     Setting the dump2csv.py running arguments and options 
  
 * mysqld config:
+
    server-id       = 1
 
    log_bin         = /var/log/mysql/mysql-bin.log
