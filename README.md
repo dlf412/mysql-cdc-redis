@@ -1,5 +1,5 @@
 # mysql-cdc-redis
-capture changed data from mysql using binlog
+capture changed data from mysql's binlog, save into redis and dump to csv files
 * functions:                                                                                                                                                                           
  1. capture mysql database changed data from binlog and save to redis
  2. support dump the changed data from redis to xml files
@@ -39,3 +39,8 @@ capture changed data from mysql using binlog
  1. Using 2GB at least 
  2. HA
  3. turn on AOF configure
+ 
+* TODO
+ 1. support raw data key
+ 2. support alter table
+ 3. support truncate
