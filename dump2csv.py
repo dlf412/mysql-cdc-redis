@@ -3,24 +3,24 @@
 
 '''
 Usage:
-  dump2csv.py [<table>...] -s SID -u REDIS_URL -d DIR [-m COUNT] [-l DIR] [-v]
-  dump2csv.py -c CONFIG_FILE [<table>...] [-v]
+  dump2csv.py -s SID -u REDIS_URL -d DIR [-m COUNT] [-l DIR] [-v] [<table>...]
+  dump2csv.py -c CONFIG [-v] [<table>...]
   dump2csv.py (-h | --help | --version)
 
 Arguments:
-  <table>                   Specify tables to dump like: "testdb.testtable"
-                            It will dump all tables if specify nothing
+  <table>                       Specify tables to dump like: "testdb.testtable"
+                                It will dump all tables if specify nothing
 Options:
-  -h --help                 Show this help message and exit
-  --version                 Show version and exit
-  -c --config_file          Specify config file
-  -v --verbose              Print the running status message
-  -s --server_id=SID        Specify mysql server id
-  -u --cache_url=REDIS_URL  Specify the redis cache url like:
-                            "redis://host:port/db"
-  -d --dump_dir=DIR         Specify the dir of dump result
-  -l --log_dir=DIR          Specify the dir of logging
-  -m --max_rows=COUNT       Specify max rows of one csv file [default: 1000000]
+  -h --help                     Show this help message and exit
+  --version                     Show version and exit
+  -c --config_file=CONFIG_FILE  Specify config file
+  -v --verbose                  Print the running status message
+  -s --server_id=SID            Specify mysql server id
+  -u --cache_url=REDIS_URL      Specify the redis cache url like:
+                                "redis://host:port/db"
+  -d --dump_dir=DIR             Specify the dir of dump result
+  -l --log_dir=DIR              Specify the dir of logging
+  -m --max_rows=COUNT           Specify max rows of one csv file [default: 1000000]
 '''
 
 import csv
