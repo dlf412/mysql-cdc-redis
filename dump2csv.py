@@ -4,7 +4,7 @@
 '''
 Usage:
   dump2csv.py -s SID -u REDIS_URL -d DIR [-m COUNT] [-l DIR] [-v] [<table>...]
-  dump2csv.py -c CONFIG [-v] [<table>...]
+  dump2csv.py -c CONFIG_FILE [-v] [<table>...]
   dump2csv.py (-h | --help | --version)
 
 Arguments:
@@ -116,8 +116,7 @@ def main():
     '''
 
     options = docopt(__doc__, version=__version__)
-
-    config_file = options['CONFIG_FILE']
+    config_file = options['--config_file']
     verbose = options['--verbose']
 
     if config_file:
