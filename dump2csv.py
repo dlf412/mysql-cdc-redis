@@ -35,8 +35,6 @@ import rcache
 import mwlogger
 from datetime import datetime
 
-server_id = 1
-
 __version__ = "Version0.1"
 
 
@@ -53,19 +51,31 @@ def group_by_field(rows):
     return g_rows
 
 def save2csv(logger, dump_dir, table, trows):
-    '''
-    '''
+    """
+    save table's rows into csv_files. csv_file like
+     'db.table.timestamp.csv'
+    :param logger:
+    :param dump_dir:
+    :param table:
+    :param trows:
+    :return: None
+    """
     try:
         if len(trows) == 0:
             logger.info("table[{}] has no rows to dump".format(table))
             return
         g_rows = group_by_field(trows)
+        table_alter = False
+        if len(g_rows) > 1:
+            logger.warn("table[{}] maybe altered.".format(table))
+            table_alter = True
         for fieldnames, rows in g_rows.items():
             save_dir = os.path.join(dump_dir, datetime.strftime(datetime.today(), "%Y%m%d"))
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
+            suffix = "tmp" if table_alter else "csv"
             csv_file = os.path.join(save_dir,
-                    "{}_{:.6f}.csv".format(table, time.time()))
+                "{}.{:.6f}.{}".format(table, time.time(), suffix))
             logger.info("dump to {}, rows:{}".format(csv_file, len(rows)))
             exists = os.path.exists(csv_file)
             with open(csv_file, 'ab+') as fp:
@@ -75,10 +85,8 @@ def save2csv(logger, dump_dir, table, trows):
                 dict_writer.writerows(rows)
             logger.info("{} dump Done.".format(csv_file))
         logger.info("table:{}, rows:{} dump OK!".format(table, len(trows)))
-        if len(g_rows) > 1:
-            logger.warn("alter table happend, table is {}".format(table))
     except:
-        logger.error("dump Error: {}", exc_info=True)
+        logger.error("{} dump Error".format(table), exc_info=True)
         raise
 
 

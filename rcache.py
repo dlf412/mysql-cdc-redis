@@ -4,6 +4,7 @@
 import redis
 import time
 import threading
+import os
 
 class SaveIgnore(Exception):
     pass
@@ -186,7 +187,7 @@ class Rcache(object):
     def _gen_rid(row, primary_key):
         if primary_key is None:
             return None
-        elif isinstance(primary_key, tuple):
+        elif isinstance(primary_key, tuple) or isinstance(primary_key, list):
             return '&'.join([str(row[key]) for key in primary_key])
         else:
             return row[primary_key]
@@ -256,4 +257,9 @@ class Rcache(object):
                 raise FullError(str(err))
         finally:
             self._free_lock()
+
+
+
+
+
 
