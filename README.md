@@ -39,7 +39,16 @@ capture changed data from mysql's binlog, save into redis and dump to csv files
  1. Using 2GB at least 
  2. HA
  3. turn on AOF configure
- 
+
+* support upload csv_files to google cloud storage in dump2csv.py
+ * Please install gcloud to ensure gsutil can run
+ * google storage url's Rules:
+  * schema: "gs://bucket/subdir/object"
+  * bucket: google cloud project_id
+  * subdir: system/mysql-server-id/datetime(yyyymmdd)/
+  * object: csv file(db.table.timestamp.csv)
+  * example: "gs://vobile-data-analysis/VTWeb/mysqld-001/20160608/testdb.testtable.1324332433.csv"
+
 * TODO
  1. support raw data key
  2. support alter table
