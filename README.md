@@ -40,7 +40,7 @@ capture changed data from mysql's binlog, save into redis and dump to csv files
  2. HA
  3. turn on AOF configure
 
-* support upload csv_files to google cloud storage in dump2csv.py
+* support upload csv_files to google cloud storage and load to bigquery in dump2csv.py
  * Please install gcloud to ensure gsutil can run
  * google storage url's Rules:
   * schema: "gs://bucket/subdir/object"
@@ -48,6 +48,9 @@ capture changed data from mysql's binlog, save into redis and dump to csv files
   * subdir: system/mysql-server-id/datetime(yyyymmdd)/
   * object: csv file(db.table.timestamp.csv)
   * example: "gs://vobile-data-analysis/VTWeb/mysqld-001/20160608/testdb.testtable.1324332433.csv"
+ * bigquery:
+  * Dataset: mysql database
+  * table:   mysql table
 
 * TODO
  1. support raw data key

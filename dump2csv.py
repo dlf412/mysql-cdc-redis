@@ -31,7 +31,7 @@ from functools import partial
 from docopt import docopt
 from collections import defaultdict
 import json
-from Queue import Queue
+from Queue import Queue, Empty
 import threading
 import commands
 
@@ -42,7 +42,9 @@ from datetime import datetime
 __version__ = "Version0.1"
 
 
-rqueue = Queue()
+rqueue = Queue() # queue for uploading to google storage
+bqueue = Queue() # queue for loading to bigquery
+
 glogger = None
 
 def group_by_field(rows):
@@ -94,6 +96,7 @@ def save2csv(dump_dir, table, trows, gs_url):
             if gs_url:
                 glogger.info("dispatch {} to rqueue".format(csv_file))
                 rqueue.put(csv_file)
+                time.sleep(2)
         glogger.info("table:{}, rows:{} dump OK!".format(table, len(trows)))
     except:
         glogger.error("{} dump Error".format(table), exc_info=True)
@@ -101,14 +104,16 @@ def save2csv(dump_dir, table, trows, gs_url):
 
 
 def create_logger(log_dir, verbose):
+    log_level = "INFO"
     if verbose:
         log_file = None
+        log_level = "DEBUG"
     elif log_dir:
         log_file = os.path.join(log_dir, "dump.log")
     else:
         log_file = "dump.log"
 
-    return mwlogger.MwLogger("dump", log_file)
+    return mwlogger.MwLogger("dump", log_file, log_level=log_level)
 
 
 def _upload_by_date(csv_file, gs_url):
@@ -168,6 +173,7 @@ def group_lst(csvs):
 
 
 def upload_csvs(gs_url, csvs):
+    loop_times = 0
     gen = group_lst(csvs)
     for gcsvs in gen:
         if len(gcsvs) == 0:
@@ -185,25 +191,89 @@ def upload_csvs(gs_url, csvs):
             glogger.info("upload successfully, files count:{}".format(len(gcsvs)))
             gen.send([])
         else:
-            # TODO: need alarm
+            # should check and upload failed files to google cloud storage manually
             glogger.error("{} run error. ret:{}, out:{}".format(
                 cmd, ret, out
             ))
             # parse success from log_file, upload.info's schema:
             # Source,Destination,Start,End,Md5,UploadId,Source Size,Bytes Transferred,Result,Description
-            log = os.path.join(csv_pdir, "upload.info")
-            with open(log) as fp:
-                _ups = list(csv.DictReader(fp))
-            sources = [up['Source'].strip("file://") for up in _ups]
-            gen.send(list(set(gcsvs) - set(sources)))
+            loop_times += 1
+            if loop_times < 3: # avoid endless loop
+                log = os.path.join(csv_pdir, "upload.info")
+                with open(log) as fp:
+                    _ups = list(csv.DictReader(fp))
+                sources = [up['Source'].strip("file://") for up in _ups]
+                # retry in next loop
+                gen.send(list(set(gcsvs) - set(sources)))
+            else:
+                gen.send([])
 
-def _run_cmd_retry(cmd, tries):
-    for tries in range(tries):
+        glogger.info("start load gstorage csv files to bigquery......")
+        bqueue.put(csv_pdir)
+        #load2bq(csv_pdir)
+
+
+def load2bq(upload_dir):
+    upload_log = os.path.join(upload_dir, "upload.info")
+    bq_log = os.path.join(upload_dir, "bqload.info")
+
+    to_loads = loadeds = []
+    if os.path.exists(bq_log):
+        with open(bq_log, 'r') as fp:
+            loadeds = fp.readlines()
+        loadeds = [load.strip() for load in loadeds]
+
+    with open (upload_log, 'r') as fp:
+        _ups = list(csv.DictReader(fp))
+        gs_urls = [up['Destination'] for up in _ups]
+
+    to_loads = list(set(gs_urls) - set(loadeds))
+
+    # load all uploaded files to bigquery
+    with open(bq_log, 'a') as fp:
+        for gs_url in to_loads:
+            glogger.debug(gs_url)
+            [_, system, sid, _, csv_file] = gs_url.strip("gs://").split('/')
+            db = csv_file.split('.')[0]
+            tb = csv_file.split('.')[1]
+            schema = os.path.join("bq_schema",
+                                  system,
+                                  sid,
+                                  db,
+                                  tb)
+
+            #bqDataset = "{}:{}:{}".format(system, sid, db)
+            bqDataset = db # Not support the same database name from different systems
+            ret, out = _run_cmd_retry("bq mk {}".format(bqDataset), 3)
+            glogger.debug("cmd:{}, ret={}, out={}".format("bq mk {}".format(bqDataset), ret, out))
+            if not (ret == 0 or ret == 1 and "already exists" in out):
+                glogger.error("Dataset[{}] may not exists and create it failed".format(bqDataset))
+
+            if not os.path.exists(schema):
+                glogger.warn("Not found schema: {}. Ignore it".format(schema))
+                cmd = "bq load --skip_leading_rows=1 --allow_quoted_newlines" \
+                      " {}.{} {}".format(bqDataset, tb, gs_url)
+            else:
+                cmd = "bq load  --schema={} --skip_leading_rows=1 --allow_quoted_newlines" \
+                      " {}.{} {}".format(schema, bqDataset, tb, gs_url)
+            glogger.debug("load to bigqeury command: {}".format(cmd))
+            ret, out = _run_cmd_retry(cmd, 3)
+            if ret == 0:
+                glogger.info("load {} to bigquery successfully".format(gs_url))
+                fp.write(gs_url + '\n')
+            else:
+                # should check and load failed files to bigquery manually
+                glogger.error("load {} to bigquery failed. msg is {} "
+                              "Please check command ['{}'] manually".format(gs_url, out, cmd))
+
+
+def _run_cmd_retry(cmd, tries=1):
+    for t in range(tries):
         ret, out = commands.getstatusoutput(cmd)
-        if ret == 0 or tries == tries - 1:
+        if ret == 0 or t == tries - 1:
             break
         else:
-            time.sleep(2)
+            time.sleep(1)
     return ret >> 8, out
 
 
@@ -211,9 +281,9 @@ def async_upload2gstorage(gs_url):
     csvs = []
     while 1:
         while not rqueue.empty():
-            csvs.append(rqueue.get())
+            csvs.append(rqueue.get_nowait())
         if not csvs:
-            time.sleep(1)
+            time.sleep(0.1)
             continue
         if csvs[-1] is None:
             del csvs[-1]
@@ -222,6 +292,18 @@ def async_upload2gstorage(gs_url):
         del csvs[:]
     if len(csvs) > 0:
         upload_csvs(gs_url, csvs)
+    bqueue.put(None)
+
+
+def async_load2bigquery():
+    while 1:
+        csv_dir = bqueue.get()
+        if csv_dir:
+            load2bq(csv_dir)
+        else:
+            break
+
+
 
 def main():
 
@@ -271,6 +353,10 @@ def main():
         upload_thr.setDaemon(True)
         upload_thr.start()
         glogger.info("upload csv files to {} thread running...".format(gs_url))
+        load_thr = threading.Thread(target=async_load2bigquery)
+        load_thr.setDaemon(True)
+        load_thr.start()
+        glogger.info("load to bigquery threading running....")
 
     glogger.info("start dump from cache to csv files")
 
@@ -278,9 +364,10 @@ def main():
     cache.dump_t(callback, max_rows, dump_tables)
     glogger.info("dump complete!")
     if gs_url:
-        glogger.info("wait csv files uploading completed......")
+        glogger.info("wait uploading to gstorage and loading to bigquery threads completed......")
         rqueue.put(None)
         upload_thr.join()
+        load_thr.join()
 
 
 if __name__ == "__main__":
