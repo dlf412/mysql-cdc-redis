@@ -114,7 +114,7 @@ def main():
             if not binlogevent.primary_key:
                 binlogevent.primary_key = tables_without_primary_key.get(table, None)
                 if not binlogevent.primary_key:
-                    logger.error("{} has neither primary_key nor unique key configure")
+                    logger.error("{} has neither primary_key nor unique key configure".format(table))
                     exit(1)                    
             try:
                 cache.save(table, binlogevent.primary_key, vals_lst)
