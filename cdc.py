@@ -112,7 +112,10 @@ def main():
             table = "%s.%s" % (binlogevent.schema, binlogevent.table)
             vals_lst = _get_row_values(binlogevent)
             if not binlogevent.primary_key:
-                tables_without_primary_key.get(table, None)
+                binlogevent.primary_key = tables_without_primary_key.get(table, None)
+                if not binlogevent.primary_key:
+                    logger.error("{} has neither primary_key nor unique key configure")
+                    exit(1)                    
             try:
                 cache.save(table, binlogevent.primary_key, vals_lst)
                 logger.debug("save {} {} rows to cache".format(
