@@ -2,7 +2,7 @@
 capture changed data from mysql's binlog, save into redis and dump to csv files
 * functions:                                                                                                                                                                           
  1. capture mysql database changed data from binlog and save to redis
- 2. support dump the changed data from redis to xml files
+ 2. support dump the changed data from redis to csv files
  
 * configure files:
  1. cdc_config.py: 
